@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from timeit import default_timer as timer
 import subprocess
+import pprint
 
 #strukturyhumans
 import molecule as molecule_import
@@ -16,9 +17,9 @@ import pid as pid_import
 #import graphics as graphics_import
 #import plot as myplt
 
-NO_MOLECULES = 20
-HEIGHT = 21
-WIDTH = 21
+NO_MOLECULES = 7
+HEIGHT = 31
+WIDTH = 31*20
 ITERATIONS = HEIGHT*WIDTH
 WAIT_TIME = 0.0000000000000001
 
@@ -32,8 +33,14 @@ def setup_molecules(no_molecules):
     for k in range(0, no_molecules):
         pos_x = random.randint(0, HEIGHT)
         pos_y = random.randint(0, WIDTH)
-        molecule = molecule_import.Molecule(k, pos_x, pos_y)
+        molecule = molecule_import.Molecule(k, pos_x, pos_y, False)
         list_of_molecules.append(molecule)
+
+def append_static_molecule(pos_x, pos_y):
+    k=len(list_of_molecules)+1
+    molecule=molecule_import.Molecule(k, pos_x, pos_y, True)
+    list_of_molecules.append(molecule)
+
 
 def setup_test_molecules():
     molecule1 = molecule_import.Molecule(1, 0, 0)
@@ -100,7 +107,7 @@ def checkNeighbours(index_of_chosen_mol, x, y):
 
 def virtualMove(index_of_chosen_mol, direction):
     chosen_mol = list_of_molecules[index_of_chosen_mol]
-    moved_mol = molecule_import.Molecule(1, 0, 0)
+    moved_mol = molecule_import.Molecule(1, 0, 0, False)
     #print(moved_mol.pos_x, moved_mol.pos_y)
 
     if direction==1:
@@ -173,7 +180,8 @@ def moveChance(index_of_chosen_mol):
 
 def moveChanceForAll():
     for i in range(0,len(list_of_molecules)):
-        moveChance(i)
+        if not list_of_molecules[i].static:
+            moveChance(i)
 
 
 def printDirectionCountList():
@@ -373,15 +381,32 @@ def gnuplot():
 
     proc.stdin.write("set pm3d map\n")
     proc.stdin.write("set palette rgbformulae 22,13,-31\n")
+    proc.stdin.write("set grid lt 1 lc 'black'\n")
+    proc.stdin.write("set xtics 20\n")
+    proc.stdin.write("set ytics 1\n")
     proc.stdin.write("splot 'out.txt' u 1:2:3\n")
+
+values_list=[]
+def filter(last_value):
+    if len(values_list)<20:
+        values_list.append(last_value)
+    elif len(values_list)==20:
+        values_list.append(last_value)
+        values_list.pop(0)
+    total_value=0
+    for i in values_list:
+        total_value+=i
+    filtered_value=total_value/20
+    return filtered_value
 
 def Main():
     start = timer()
     setup_molecules(NO_MOLECULES)
+    append_static_molecule(int(HEIGHT/2),int(WIDTH/2))
 
     new_z=0.0
     z=5.0
-    new_pid = pid_import.PID(1.2, 0.1, 0.1, 0.0, 0.0)
+    new_pid = pid_import.PID(0.8, 0.1, 0.1, 0.0, 0.0)
 
 
 
@@ -396,7 +421,7 @@ def Main():
 
     #convertOverlapToProbability(1)
 
-    print("TEEEST ", checkNeighbours(2, 7, 7))
+    #print("TEEEST ", checkNeighbours(2, 7, 7))
 
 
     
@@ -404,11 +429,16 @@ def Main():
 
 
     meanwhile_t=0.0
+    dt=60/(512*20*512)
     #the main loop
     keep_running = True
     with open('out.txt', 'wt') as out:
         for i in range(0,ITERATIONS):
-            add_deposition_chance()
+            
+            #depozice novych molekul - vypnute pro testovaci ucely
+            #add_deposition_chance()
+            
+
             moveChanceForAll()
             #pseudoGraphics()
             #graphics(i)
@@ -416,22 +446,26 @@ def Main():
             #printDirectionCountList()
             #print_molecule_list()
             makeOneChange()
-
-            dt=60/(512*20*512)
+            
             meanwhile_t+=delta_time
             if meanwhile_t>=dt:
                 meanwhile_t=0.0
                 z+=call_PID(i,z,new_pid)
+                #print(z)
+                pos_width=i%WIDTH
+                pos_height=(i-pos_width)/WIDTH
 
-                pos_width=i%HEIGHT
-                pos_height=(i-pos_width)/HEIGHT
-
+                z=filter(z)
+                #print(z)
                 out_str=str(pos_width)+"    "+str(pos_height)+"    "+str(z)+"\n"
                 #if i>=WIDTH:    
-                out.write(out_str)
+                if i%20==0:
+                    out.write(out_str)
                 if ((i+1)%WIDTH==0):
                     out.write("\n")
 
+            print_molecule_list()
+            print("      \n")
 
             #print("another run_________________________")
             del direction_count_list[:]
