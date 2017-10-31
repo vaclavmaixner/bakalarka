@@ -11,15 +11,20 @@ from timeit import default_timer as timer
 import subprocess
 import pprint
 
+import profile
+
+import re
+import cProfile
+
 #strukturyhumans
 import molecule as molecule_import
 import pid as pid_import
 #import graphics as graphics_import
 #import plot as myplt
 
-NO_MOLECULES = 7
-HEIGHT = 31
-WIDTH = 31*20
+NO_MOLECULES = 200
+HEIGHT = 15
+WIDTH = 20*15
 ITERATIONS = HEIGHT*WIDTH
 WAIT_TIME = 0.0000000000000001
 
@@ -31,8 +36,8 @@ direction_count_list = []
 
 def setup_molecules(no_molecules):
     for k in range(0, no_molecules):
-        pos_x = random.randint(0, HEIGHT)
-        pos_y = random.randint(0, WIDTH)
+        pos_x = random.randint(0, WIDTH)
+        pos_y = random.randint(0, HEIGHT)
         molecule = molecule_import.Molecule(k, pos_x, pos_y, False)
         list_of_molecules.append(molecule)
 
@@ -101,8 +106,8 @@ def checkNeighbours(index_of_chosen_mol, x, y):
 
             # diff_x=-1 znamena, ze sousedici molekula sedi
             # nad nami vysetrovanou molekulou, y=-1 je napravo
-
-            sum_of_overlap += countOverlap(difference_x,difference_y)
+            if abs(difference_x)<=1 and abs(difference_y)<=3:
+                sum_of_overlap += countOverlap(difference_x,difference_y)
     return sum_of_overlap
 
 def virtualMove(index_of_chosen_mol, direction):
@@ -268,9 +273,12 @@ def add_deposition_chance():
 time_list = []
 
 whole_time = 0
+time_change=0
 def print_time(delta_time):
     global whole_time
+    global time_change
     whole_time += delta_time
+    time_change=delta_time
 
     molecule_over_time = molecule_import.MoleculesOverTime(whole_time, len(list_of_molecules))
     time_list.append(molecule_over_time)
@@ -295,8 +303,11 @@ def makeOneChange():
 
 
     #secte vsechny cestnosti dohromady
-    for i in range(0,len(direction_count_list)):
-        sumOfAllMoves += direction_count_list[i].prob
+    # for i in range(0,len(direction_count_list)):
+    #     sumOfAllMoves += direction_count_list[i].prob
+
+    for i in direction_count_list:
+        sumOfAllMoves += i.prob
     #print("THE SUM OF ALL MOVES IS ",sumOfAllMoves)
 
     a = random.uniform(0.0, 1.0)
@@ -304,6 +315,7 @@ def makeOneChange():
     delta_time = ((-1)*math.log(a)/sumOfAllMoves)
 
     print_time(delta_time)
+    time_change=delta_time
 
     #print("THE TIME IS ", delta_time, "exponent is ", math.log10(delta_time))
     #print(delta_time * pow(10,-(math.log10(delta_time))))
@@ -351,21 +363,20 @@ def tip_neighbours(x,y):
 
             # diff_x=-1 znamena, ze sousedici molekula sedi
             # nad nami vysetrovanou molekulou, y=-1 je napravo
-
+        #print(difference_x,"    ", difference_y)
         sum_of_overlap = countOverlap(difference_x,difference_y)
+        #print(sum_of_overlap)
         if sum_of_overlap!=0:
             overlap+=1
     return overlap
 
 
-def call_PID(i,z,new_pid):
-    pos_width=i%HEIGHT
-    pos_height=(i-pos_width)/HEIGHT
+def call_PID(pos_width,pos_height,z,new_pid):
+    #pos_width=i%WIDTH
+    #pos_height=(i-pos_width)/WIDTH
+    #print(str(pos_width) + " " + str(pos_height))
     #sem kouka hrot mikroskopu, vystupem je vyska baliku molekul pod hrotem
     stack_height=tip_neighbours(pos_width,pos_height)
-    if stack_height>1:
-        #print(stack_height)
-        pass
 
     update=new_pid.update(z-stack_height)
     #print(update)
@@ -402,11 +413,14 @@ def filter(last_value):
 def Main():
     start = timer()
     setup_molecules(NO_MOLECULES)
+    #print_molecule_list()
     append_static_molecule(int(HEIGHT/2),int(WIDTH/2))
 
     new_z=0.0
     z=5.0
-    new_pid = pid_import.PID(0.8, 0.1, 0.1, 0.0, 0.0)
+    new_pid = pid_import.PID(1.4, 0.1, 0.1, 0.0, 0.0)
+
+    print("let's go")
 
 
 
@@ -429,64 +443,84 @@ def Main():
 
 
     meanwhile_t=0.0
-    dt=60/(512*20*512)
+    dt=60.0/(512*20*512)
     #the main loop
     keep_running = True
     with open('out.txt', 'wt') as out:
         for i in range(0,ITERATIONS):
-            
             #depozice novych molekul - vypnute pro testovaci ucely
             #add_deposition_chance()
-            
-
-            moveChanceForAll()
+                        
             #pseudoGraphics()
             #graphics(i)
             #graphics_import.graphics_main(list_of_molecules)
             #printDirectionCountList()
             #print_molecule_list()
-            makeOneChange()
-            
-            meanwhile_t+=delta_time
-            if meanwhile_t>=dt:
-                meanwhile_t=0.0
-                z+=call_PID(i,z,new_pid)
-                #print(z)
-                pos_width=i%WIDTH
-                pos_height=(i-pos_width)/WIDTH
+            meanwhile_t=0.0
+            #print("__________________")
+            #meanwhile_t=0.0
 
-                z=filter(z)
+            #print_molecule_list()
+
+            pos_width=i%WIDTH
+            pos_height=(i-pos_width)/WIDTH
+            while meanwhile_t<=dt:
+                moveChanceForAll()
+                makeOneChange()
+                meanwhile_t+=(time_change*10e22)
+                print(time_change)
+                #print(meanwhile_t)
+
+                #print(meanwhile_t)
+                z+=call_PID(pos_width,pos_height,z,new_pid)
                 #print(z)
-                out_str=str(pos_width)+"    "+str(pos_height)+"    "+str(z)+"\n"
+                
+
+                filter_z=filter(z)
+                #print(z)
+                
                 #if i>=WIDTH:    
-                if i%20==0:
-                    out.write(out_str)
-                if ((i+1)%WIDTH==0):
+                
+            
+                
+
+            
+            out_str=str(pos_width)+"    "+str(pos_height)+"    "+str(z)+"\n"
+            
+            if i%20==0:
+                out.write(out_str)
+            if ((i+1)%WIDTH==0):
                     out.write("\n")
 
-            print_molecule_list()
-            print("      \n")
+
+            #print_molecule_list()
+            #print("      \n")
 
             #print("another run_________________________")
             del direction_count_list[:]
-    plt.show(block=True)
+    #plt.show(block=True)
 
-    for i in range(0,len(time_list)):
-        with open('molecules_over_time_data5.txt', 'a') as f:
-            f.write(str(time_list[i].time))
-            f.write(' ')
-            f.write(str(time_list[i].no_molecules))
-            f.write('\n')
+    # for i in range(0,len(time_list)):
+    #     with open('molecules_over_time_data5.txt', 'a') as f:
+    #         f.write(str(time_list[i].time))
+    #         f.write(' ')
+    #         f.write(str(time_list[i].no_molecules))
+    #         f.write('\n')
 
 
     gnuplot()
+    #print_molecule_list()
 
     end = timer()
     print(end-start, "seconds")
 
 
 #run the setup
-Main()
+#Main()
+
+#profile.run('Main(); print')
+
+cProfile.run('re.compile("Main()")')
 
 
 
