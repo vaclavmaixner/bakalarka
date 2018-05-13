@@ -20,13 +20,17 @@ from matplotlib.patches import Rectangle
 import molecule3 as molecule_import
 import pid as pid_import
 import graphics as graphics_import
+import graphics2 as graphics_import2
+
+import sys
 
 HEIGHT = 15
 WIDTH = 15
-ITERATIONS=HEIGHT*WIDTH/10
+ITERATIONS=HEIGHT*WIDTH
+#NO_MOLECULES = 10
 
-STEP_HEIGHT = 5
-KP = 0.7
+#STEP_HEIGHT = 5
+#KP = 0.7
 
 DT=60.0/(512*512)
 
@@ -41,10 +45,15 @@ def setup_molecules(no_molecules):
 
 def setup_molecules_test(no_molecules):
 	for k in range(0, no_molecules):
-		pos_x = WIDTH//2
-		pos_y = HEIGHT//2
+		pos_x = WIDTH//2 - 1
+		pos_y = HEIGHT//2 + 1
 		molecule = molecule_import.Molecule(pos_x, pos_y, False,0,0,0,0)
 		list_of_molecules[k]=molecule
+
+def append_static_molecule(x,y):
+	k=len(list_of_molecules)
+	molecule=molecule_import.Molecule(x, y, True,0,0,0,0)
+	list_of_molecules[k]=molecule
 
 def print_molecule_list():
     print('\n')
@@ -86,25 +95,25 @@ def check_neighbours(index_of_chosen_mol, x, y):
 	for index in range(0,len(list_of_molecules)):
 		if (index != index_of_chosen_mol):
 			potential_neighbour = list_of_molecules[index]
-			difference_x = (x - (potential_neighbour.pos_x))
-			difference_y = (y - (potential_neighbour.pos_y))
+			difference_x = x - (potential_neighbour.pos_x)%WIDTH
+			difference_y = y - (potential_neighbour.pos_y)%HEIGHT
 
-			if difference_x == WIDTH or difference_x == -WIDTH:
-				difference_x == 1
+			#if difference_x == WIDTH or difference_x == -WIDTH:
+			#	difference_x = 1
 
-			if difference_y == HEIGHT or difference_y == -HEIGHT:
-				difference_y == 1
+			#if difference_y == HEIGHT or difference_y == -HEIGHT:
+			#	difference_y = 1
 
-			if difference_x == WIDTH-1 or difference_x == -(WIDTH-1):
-				difference_x == 2
+			#if difference_x == WIDTH-1 or difference_x == -(WIDTH-1):
+			#	difference_x = 2
 			
-			if difference_y == HEIGHT-1 or difference_y == -(HEIGHT-1):
-				difference_y == 2
+			#if difference_y == HEIGHT-1 or difference_y == -(HEIGHT-1):
+			#	difference_y = 2
 
 			if abs(difference_x)<=3 and abs(difference_y)<=1:
 				sum_of_overlap += count_overlap(difference_x,difference_y)
 
-			#print '\t ',index, ' dif x ', difference_x, ' dif y ', difference_y,
+			#print '\t ',index, ' dif x ', difference_x, ' dif y ', difference_y
 	return sum_of_overlap
 
 
@@ -114,6 +123,7 @@ def virtual_move(index_of_chosen_mol, direction):
 	chosen_mol = list_of_molecules[index_of_chosen_mol]
 	moved_mol = molecule_import.Molecule(0, 0, False,0,0,0,0)
 
+	#print 'initial'
 	overlap_initial = check_neighbours(index_of_chosen_mol, chosen_mol.pos_x, chosen_mol.pos_y)
 	#print 'initial'
 	if direction==1:
@@ -135,6 +145,7 @@ def virtual_move(index_of_chosen_mol, direction):
 
 	#prob_after_move = convert_overlap_to_prob(overlap_after_move,overlap_initial, direction)
 
+	#print move_overlap_count.prob
 	return move_overlap_count
 
 
@@ -142,7 +153,7 @@ def convert_overlap_to_prob(overlapAfterMove, overlapInitial, direction):
 	BOLTZMANN = 8.617e-5 #prepsat do eV
 	TEMPERATURE = 300
 	ENERGY_EQ = 0.8
-	c = -0.1
+	c = -0.2
 
 	#print overlapAfterMove, overlapInitial, direction
 
@@ -169,7 +180,7 @@ def convert_overlap_to_prob(overlapAfterMove, overlapInitial, direction):
 	#print energy_act, ' energy act'
 	probability = diffusivity_coefficient*GAMMA*math.exp((-1)*(energy_act)/(BOLTZMANN*TEMPERATURE))
 
-	print probability, 'probability pro ', overlapAfterMove, "overlap after and ", overlapInitial, ' overlapInitial'
+	#print probability, 'probability pro ', overlapAfterMove, "overlap after and ", overlapInitial, ' overlapInitial'
 	return probability
 
 def count_movement_chances(index_of_chosen_mol):
@@ -184,7 +195,7 @@ def count_movement_chances(index_of_chosen_mol):
 	#print 'initial2'
 	for direction in range(1,5):
 		overlap_after_move = virtual_move(index_of_chosen_mol, direction)
-		print index_of_chosen_mol, 'overlap ', overlap_after_move.prob, ' initial ', overlap_initial, '\n'
+		#print index_of_chosen_mol, 'overlap ', overlap_after_move.prob, ' initial ', overlap_initial, '\n'
 
 		chance_after_move=convert_overlap_to_prob(overlap_after_move.prob, overlap_initial, direction)
 
@@ -199,11 +210,11 @@ def count_movement_chances(index_of_chosen_mol):
 			list_of_molecules[index_of_chosen_mol].l_prob=chance_after_move
 
 
-
 def setup_directions():
 	for i in range(0,len(list_of_molecules)):
 		if not list_of_molecules[i].static:
 			count_movement_chances(i)
+
 
 def make_one_change():
 	#print ".",
@@ -229,7 +240,7 @@ def make_one_change():
 		lil_sum+=list_of_molecules[i].l_prob
 		partial_sum[((i+1)*4)]=lil_sum
 		#print lil_sum
-		print(i,'Probabilities:',list_of_molecules[i].u_prob, list_of_molecules[i].r_prob, list_of_molecules[i].d_prob, list_of_molecules[i].l_prob)
+		#print(i,'Probabilities:',list_of_molecules[i].u_prob, list_of_molecules[i].r_prob, list_of_molecules[i].d_prob, list_of_molecules[i].l_prob)
 
 
 	sumOfAllMoves += lil_sum
@@ -246,7 +257,7 @@ def make_one_change():
 	#delta_time = ((-1)*math.log(a)/sumOfAllMoves)
 
 	chosenCount = random.uniform(0, sumOfAllMoves)
-	print 'sum of all moves ', sumOfAllMoves, ' chosen count ', chosenCount
+	#print 'sum of all moves ', sumOfAllMoves, ' chosen count ', chosenCount
 	#print('chosenCount')
 	#print(sumOfAllMoves)
 	#print(chosenCount)
@@ -268,27 +279,101 @@ def make_one_change():
 			if chosen_direction==0:
 				chosen_direction=4
 
-			print indexOfchosenEvent, ' index a direction je', chosen_direction
+			#print indexOfchosenEvent, ' index a direction je', chosen_direction
 
 	#actually move
-	if chosen_direction == 1:
-		list_of_molecules[indexOfchosenEvent].pos_y = (list_of_molecules[indexOfchosenEvent].pos_y - 1)%HEIGHT
-	elif chosen_direction  == 2:
-		 list_of_molecules[indexOfchosenEvent].pos_x = (list_of_molecules[indexOfchosenEvent].pos_x + 1)%WIDTH
-	elif chosen_direction  == 3:
-		 list_of_molecules[indexOfchosenEvent].pos_y = (list_of_molecules[indexOfchosenEvent].pos_y + 1)%HEIGHT
-	elif chosen_direction  == 4:
-		 list_of_molecules[indexOfchosenEvent].pos_x = (list_of_molecules[indexOfchosenEvent].pos_x - 1)%WIDTH
+	if sumOfAllMoves!=0:
+		if chosen_direction == 1:
+			list_of_molecules[indexOfchosenEvent].pos_y = (list_of_molecules[indexOfchosenEvent].pos_y - 1)%HEIGHT
+		elif chosen_direction  == 2:
+			 list_of_molecules[indexOfchosenEvent].pos_x = (list_of_molecules[indexOfchosenEvent].pos_x + 1)%WIDTH
+		elif chosen_direction  == 3:
+			 list_of_molecules[indexOfchosenEvent].pos_y = (list_of_molecules[indexOfchosenEvent].pos_y + 1)%HEIGHT
+		elif chosen_direction  == 4:
+			 list_of_molecules[indexOfchosenEvent].pos_x = (list_of_molecules[indexOfchosenEvent].pos_x - 1)%WIDTH
 
-	print(indexOfchosenEvent, chosen_direction, 'pohyb molekuly')
+	#print(indexOfchosenEvent, chosen_direction, 'pohyb molekuly')
 	return indexOfchosenEvent
 
+def check_influential_neighbours(index_of_chosen_mol):
+	list_of_inf_neighbours=set()
 
-def loop():
-	NO_MOLECULES = 10
+	x=list_of_molecules[index_of_chosen_mol].pos_x
+	y=list_of_molecules[index_of_chosen_mol].pos_y
+
+	for index in range(0,len(list_of_molecules)):
+		if (index != index_of_chosen_mol):
+			potential_neighbour = list_of_molecules[index]
+			difference_x = x - (potential_neighbour.pos_x % WIDTH)
+			difference_y = y - (potential_neighbour.pos_y % HEIGHT)
+
+			if abs(difference_x)<=3 and abs(difference_y)<=1:
+				list_of_inf_neighbours.add(index)
+
+	print list_of_inf_neighbours, ' laa'
+	return list_of_inf_neighbours
+
+def count_tip_overlap(dx, dy):
+	overlap=0
+
+	# if (((dy==0) or (dy==-1)) and ((dx==0) or (dx==1) or (dx==2))):
+	# 	overlap=1
+
+	if dy==0:
+		if dx==0:
+			overlap=1
+		elif dx==1:
+			overlap=1
+		elif dx==2:
+			overlap=1
+	if dy==-1:
+		if dx==0:
+			overlap=1
+		elif dx==1:
+			overlap=1
+		elif dx==2:
+			overlap=1
+
+	return overlap
+
+def tip_neighbours(x,y):
+	overlap=0
+	for l in range(0,len(list_of_molecules)):
+		potential_neighbour = list_of_molecules[l]
+		difference_x = x - (potential_neighbour.pos_x % WIDTH)
+		difference_y = y - (potential_neighbour.pos_y % HEIGHT)
+		sum_of_overlap = count_tip_overlap(difference_x,difference_y)
+
+		overlap+=sum_of_overlap
+			
+	return overlap
+
+def setup_directions_from_list(list_of_neighbours):
+	for i in list_of_neighbours:
+		if not list_of_molecules[i].static:
+			count_movement_chances(i) #****dorozmyslet si, ktery se vlastne chteji volat
+			print i,
+	print '\n'
+
+def call_PID(pos_width,pos_height,z,new_pid):
+	#sem kouka hrot mikroskopu, vystupem je vyska baliku molekul pod hrotem
+	stack_height=tip_neighbours(pos_width,pos_height)
+	if stack_height:
+		#print(stack_height),
+		pass
+		
+	update = new_pid.update(z-stack_height)
+	return update
+
+def loop(STEP_HEIGHT, KP, SETPOINT, NO_MOLECULES, ITERATIONS):
+	start=timer()
+
+	
 	#setup_molecules(NO_MOLECULES)
 	setup_molecules_test(NO_MOLECULES)
-	print_molecule_list()
+	#for i in range(0,STEP_HEIGHT):
+	#	append_static_molecule(WIDTH//2,HEIGHT//2)
+	#print_molecule_list()
 
 	#print_molecule_list()
 	setup_directions()
@@ -302,22 +387,81 @@ def loop():
 	#print(virtual_move(0,2).prob, convert_overlap_to_prob(virtual_move(0,2).prob, check_neighbours(0, list_of_molecules[0].pos_x, list_of_molecules[0].pos_x), 2))
 	#print(virtual_move(0,3).prob, convert_overlap_to_prob(virtual_move(0,3).prob, check_neighbours(0, list_of_molecules[0].pos_x, list_of_molecules[0].pos_x), 3))
 	#print(virtual_move(0,4).prob, convert_overlap_to_prob(virtual_move(0,4).prob, check_neighbours(0, list_of_molecules[0].pos_x, list_of_molecules[0].pos_x), 4))
-	print('\n')
+	#print('\n')
 
-	for i in range(0,200):
-		
-		make_one_change()
-		graphics_import.graphics(WIDTH, HEIGHT, list_of_molecules)
-		setup_directions()
-		print_molecule_list()
-		print "AAAAAAAAAAAAAAAAAAAAAAAA"
+	z=SETPOINT
+	
+	kp=KP
+	ki=0.0
+	kd=0.0
+	derivator=0.0
+	integrator=0.0
+	new_pid = pid_import.PID(kp, ki, kd, derivator, integrator)
 
-loop()
+	print 'Progress: [',
+	with open('output_nv.txt', 'wt') as out:
+		for i in range(0,ITERATIONS):
 
-#convert_overlap_to_prob(20,5,2)
-#convert_overlap_to_prob(13,20,2) #tohle by melo byt hodne pravdepodobne, nejvice
-#convert_overlap_to_prob(14,20,2)
-#convert_overlap_to_prob(15,20,2)
-#convert_overlap_to_prob(16,20,2)
-#convert_overlap_to_prob(17,20,2) #maximum, takze to je dost jety
-#convert_overlap_to_prob(18,20,2) #maximum, takze to je dost jety
+			
+			if i%20==0 and i!=0:
+				sys.stdout.write('|')
+				sys.stdout.flush()
+
+			pos_width=i%WIDTH
+			pos_height=(i-pos_width)/WIDTH
+
+			if i==0 or i==1 or i==2 or i==5 or i==10 or i==20:
+				graphics_import2.graphics(WIDTH, HEIGHT, list_of_molecules, pos_width, pos_height,i)
+
+
+			for i in range(0,10):
+				make_one_change()
+			#index_of_chosen_event = make_one_change()
+			#neighbours_to_check=check_influential_neighbours(index_of_chosen_event)
+			#setup_directions_from_list(neighbours_to_check)
+				setup_directions()
+				#graphics_import.graphics(WIDTH, HEIGHT, list_of_molecules, pos_width, pos_height)
+
+			z+=call_PID(pos_width,pos_height,z,new_pid)
+			
+
+				#graphics_import.graphics(WIDTH, HEIGHT, list_of_molecules, pos_width, pos_height)
+			#print_molecule_list()
+
+			out_str=str(z) + ' '
+			out.write(out_str)
+
+	end=timer()
+	print ']'
+	print(end-start, "seconds")
+
+def Main():
+	STEP_HEIGHT = 10
+	KP = 0.85
+	SETPOINT = 2
+	NO_MOLECULES = 10
+	ITERATIONS = WIDTH*HEIGHT
+
+
+	loop(STEP_HEIGHT, KP, SETPOINT, NO_MOLECULES, ITERATIONS)
+
+	testweights = np.loadtxt('output_nv.txt')
+	testweights2 = np.reshape(testweights,(WIDTH, HEIGHT))
+	graphics_import.scaledimage(testweights2)
+
+	#string with the name of the file created from time for uniqueness
+	timestr = time.strftime("%Y_%m_%d-%H_%M_%S")
+
+	txt_file = open("obrazky3/"+timestr+'.inf', "w")
+	txt_file.write("Pocet molekul: " + str(NO_MOLECULES)+'\n')
+	txt_file.write("Rozmery: " + str(WIDTH) + "*" + str(WIDTH) +'\n')
+	#txt_file.write("Limit: 100"+'\n')
+	txt_file.write("Step height "+str(STEP_HEIGHT)+'\n')
+	txt_file.write("k_p "+str(KP)+'\n')
+	txt_file.write("Setpoint "+str(SETPOINT)+'\n')
+	txt_file.close()
+
+	filename = "obrazky3/" + str(timestr)
+	plt.savefig(filename)
+
+Main()
